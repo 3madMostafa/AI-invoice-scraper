@@ -10,6 +10,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email import encoders
+import zipfile
 
 # Email Configuration
 SMTP_SERVER = "smtp.gmail.com"
@@ -21,7 +22,7 @@ SMTP_PASSWORD = "phjn zdwb htpm lije"
 RECIPIENT_EMAILS = [
     # "pola_reffat@globalnapi.com",
     # "doaa_mohamed@globalnapi.com", 
-    # "kamal_hanna@globalnapi.com",
+    # "hussein.alshreef@ifssgroup.com",
     # "Mohamedzenhomsayed@gmail.com",
     "emadmostafa1442002@gmail.com"
 ]
@@ -153,6 +154,56 @@ def find_results_files(search_path):
     
     logger.info(f"Total results files found: {len(results_files)}")
     return results_files
+
+def create_pdf_zip(output_folder_path, date_str):
+    """Create a ZIP file containing all PDFs from all suppliers"""
+    try:
+        # Determine the base path
+        if isinstance(output_folder_path, tuple):
+            date_folder, _ = output_folder_path
+            base_path = date_folder
+        else:
+            base_path = Path(output_folder_path)
+        
+        # Look for PDF folder
+        pdf_folder = base_path / "PDF"
+        
+        if not pdf_folder.exists():
+            logger.warning(f"PDF folder not found at {pdf_folder}")
+            return None
+        
+        # Create zip file name
+        clean_date = date_str.replace("/", "-").replace("\\", "-").replace(":", "-")
+        zip_filename = f"_PDFs.zip"
+        zip_path = base_path / zip_filename
+        
+        # Create ZIP file
+        pdf_count = 0
+        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            # Iterate through supplier folders in PDF directory
+            for supplier_folder in pdf_folder.iterdir():
+                if supplier_folder.is_dir():
+                    supplier_name = supplier_folder.name
+                    # Add all PDFs from this supplier
+                    for pdf_file in supplier_folder.glob("*.pdf"):
+                        # Create archive name: SupplierName/filename.pdf
+                        arcname = f"{supplier_name}/{pdf_file.name}"
+                        zipf.write(pdf_file, arcname)
+                        pdf_count += 1
+                        logger.info(f"Added to ZIP: {arcname}")
+        
+        if pdf_count > 0:
+            zip_size = zip_path.stat().st_size / (1024 * 1024)  # Size in MB
+            logger.info(f"Created ZIP file: {zip_path} ({zip_size:.2f} MB, {pdf_count} PDFs)")
+            return zip_path
+        else:
+            logger.warning("No PDF files found to zip")
+            zip_path.unlink()  # Delete empty zip
+            return None
+            
+    except Exception as e:
+        logger.error(f"Error creating PDF ZIP: {e}")
+        return None
 
 def attach_file_to_email(msg, file_path, custom_filename=None, date_str=None):
     """Attach a single file to the email message"""
@@ -337,6 +388,7 @@ def create_email_content(results_files, output_folder_path, attached_filenames=N
     <h2>Invoice Processing Pipeline - Completion Report</h2>
     
     <p><strong>Report Generated:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
+    <li><strong>PDF Archive:</strong> All supplier PDFs in one ZIP file</li>
     <p><strong>Processing Date:</strong> {date_str}</p>
     
     <h3>🎉 Pipeline Status: COMPLETED SUCCESSFULLY</h3>
@@ -430,8 +482,12 @@ def create_email_content(results_files, output_folder_path, attached_filenames=N
     
     return subject, html_body
 
-def send_email_with_attachments(results_files, output_folder_path):
+def send_email_with_attachments(results_files, output_folder_path, recipient_emails=None):
     """Send email with Excel attachments to multiple recipients"""
+    # استخدام الإيميلات المُدخلة أو الافتراضية
+    if recipient_emails is None:
+        recipient_emails = RECIPIENT_EMAILS
+    
     try:
         # Determine date string for filename formatting
         date_str = "Unknown Date"
@@ -447,7 +503,7 @@ def send_email_with_attachments(results_files, output_folder_path):
         # Create message
         msg = MIMEMultipart('mixed')
         msg['From'] = SMTP_EMAIL
-        msg['To'] = ", ".join(RECIPIENT_EMAILS)
+        msg['To'] = ", ".join(recipient_emails)
         msg['Subject'] = subject
         
         # Create alternative container for HTML content
@@ -462,6 +518,17 @@ def send_email_with_attachments(results_files, output_folder_path):
         
         # Attach files
         attached_filenames = []
+        
+        # Create and attach PDF ZIP file
+        pdf_zip_path = create_pdf_zip(output_folder_path, date_str)
+        if pdf_zip_path:
+            # Create custom filename for ZIP with date
+            zip_custom_name = f"{date_str.replace('/', '-').replace('\\', '-').replace(':', '-')}_PDFs.zip"
+            result = attach_file_to_email(msg, pdf_zip_path, zip_custom_name, date_str)
+            if result[0]:
+                attached_filenames.append(result[1])
+                logger.info(f"Successfully attached PDF ZIP: {result[1]}")
+        
         for file_path in results_files:
             file_path = Path(file_path)
             
@@ -489,7 +556,7 @@ def send_email_with_attachments(results_files, output_folder_path):
         with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
             server.starttls()
             server.login(SMTP_EMAIL, SMTP_PASSWORD)
-            server.send_message(msg, to_addrs=RECIPIENT_EMAILS)
+            server.send_message(msg, to_addrs=recipient_emails)
             
         logger.info(f"Email sent successfully to {len(RECIPIENT_EMAILS)} recipients")
         logger.info(f"Recipients: {', '.join(RECIPIENT_EMAILS)}")
@@ -508,11 +575,15 @@ def main():
     parser.add_argument('--path', type=str, help='Path to output folder or specific results.xlsx file')
     parser.add_argument('--date', type=str, help='Specific date folder to process (dd-mm-yyyy format)')
     parser.add_argument('--files', nargs='+', help='Specific files to attach')
+    parser.add_argument('--email', type=str, help='Recipient email address')
     
     args = parser.parse_args()
     
+    # استخدام الإيميل المُدخل أو الافتراضي
+    recipient_emails = [args.email] if args.email else RECIPIENT_EMAILS
+    
     logger.info("Starting email sending process")
-    logger.info(f"Will send to {len(RECIPIENT_EMAILS)} recipients: {', '.join(RECIPIENT_EMAILS)}")
+    logger.info(f"Will send to {len(recipient_emails)} recipients: {', '.join(recipient_emails)}")
     
     output_folder_path = None
     results_files = []
@@ -564,12 +635,12 @@ def main():
             logger.info(f"  - {file.name} ({file_size:.1f} KB)")
         
         # Send email
-        if send_email_with_attachments(results_files, output_folder_path):
-            print(f"\n✅ Email sent successfully!")
-            print(f"📧 Recipients ({len(RECIPIENT_EMAILS)}):")
+        if send_email_with_attachments(results_files, output_folder_path, recipient_emails):
+            print(f"\nEmail sent successfully!")
+            print(f"Recipients ({len(RECIPIENT_EMAILS)}):")
             for email in RECIPIENT_EMAILS:
                 print(f"   • {email}")
-            print(f"📎 Attachments: {len(results_files)} files")
+            print(f"Attachments: {len(results_files)} files")
             
             # Show attachment names
             date_str = "Unknown Date"
@@ -591,17 +662,17 @@ def main():
                 print(f"   • {attachment_name} ({file_size:.1f} KB)")
                 
             if isinstance(output_folder_path, Path):
-                print(f"📂 Output folder: {output_folder_path.absolute()}")
+                print(f"Output folder: {output_folder_path.absolute()}")
             elif isinstance(output_folder_path, tuple):
                 date_folder, _ = output_folder_path
-                print(f"📂 Output folder: {date_folder.absolute()}")
+                print(f"Output folder: {date_folder.absolute()}")
         else:
-            print(f"\n❌ Failed to send email. Check logs for details.")
+            print(f"\nFailed to send email. Check logs for details.")
             sys.exit(1)
             
     except Exception as e:
         logger.error(f"Error in main process: {e}")
-        print(f"\n❌ Error: {e}")
+        print(f"\nError: {e}")
         sys.exit(1)
 
 if __name__ == "__main__":
