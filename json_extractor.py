@@ -73,7 +73,7 @@ def load_issuer_data_from_excel():
     if args.date:
         yesterday = args.date
     else:
-        yesterday = (datetime.now() - timedelta(days=1)).strftime("%d-%m-%Y")
+        yesterday = (datetime.now() - timedelta(days=2)).strftime("%d-%m-%Y")
     excel_path = Path("logs") / f"invoices_data_{yesterday}.xlsx"
     
     if not excel_path.exists():
@@ -137,8 +137,9 @@ def should_exclude_supplier(issuer_name):
     issuer_clean = str(issuer_name).strip().replace(" ", "")
     
     excluded_suppliers = [
-        "مكتبعلميامامفارما",
-        "شركهثريامبي"
+        "شركهمجموعهالحلولالمتكاملهلانظمهالحريقوالامان",
+        "مجموعهالحلولالمتكاملهلانظمهالحريقوالامان",
+        "الحلولالمتكاملهلانظمهالحريق"
     ]
     
     for excluded in excluded_suppliers:
@@ -1118,7 +1119,7 @@ def save_to_excel(results, output_file):
         logger.info(f"Total records: {len(df)}")
         logger.info(f"Records with PO numbers: {len(df[df['PO number'] != ''])}")
         logger.info(f"Records with issuer names from Excel: {len(df[df['FROM'] != ''])}")
-        logger.info(f"Records with submission dates: {len(df[df['SUBMISSION DATE'] != ''])}")
+        logger.info(f"Records with submission dates: {len(df[df['DATE'] != ''])}")
         return True
     except Exception as e:
         logger.error(f"Error saving Excel: {e}")
@@ -1169,8 +1170,8 @@ def copy_pdfs_to_output(date_str, outputs_date_dir):
         if total_pdfs_copied > 0:
             logger.info(f"Total PDFs copied: {total_pdfs_copied}")
             logger.info(f"Deleting source PDF directory: {pdf_source_dir}")
-            shutil.rmtree(pdf_source_dir)
-            logger.info(f"Successfully deleted source PDF directory: {pdf_source_dir}")
+            # shutil.rmtree(pdf_source_dir)
+            # logger.info(f"Successfully deleted source PDF directory: {pdf_source_dir}")
         else:
             logger.warning("No PDFs were copied, keeping source directory")
         
@@ -1183,12 +1184,6 @@ def copy_pdfs_to_output(date_str, outputs_date_dir):
 def process_taxpayer(taxpayer_folder, outputs_date_dir, issuer_data_dict):
     """Process all JSON files for a single taxpayer"""
     taxpayer_name = taxpayer_folder.name
-
-    # ✅ Replace Arabic supplier names with English codes
-    if "شركه ثري ام بي" in taxpayer_name:
-        taxpayer_name = "3MP"
-    elif "مكتب علمي ام ام فارما" in taxpayer_name:
-        taxpayer_name = "MMP"
 
     logger.info(f"Processing taxpayer: {taxpayer_name}")
     
@@ -1265,7 +1260,7 @@ def main():
     logger.info("✅ Extract PO before registration number")
     logger.info("✅ Only extract from invoice lines with PO keywords")
     logger.info("🟩 Case 1: Use JSON issuer.name when Excel = 'غير محدد' or empty")
-    logger.info("🟨 Case 2: Exclude suppliers (مكتب علمي ام ام فارما, شركه ثري ام بي) from output")
+    logger.info("🟨 Case 2: Exclude suppliers (شركه مجموعه الحلول المتكامله لانظمه الحريق والامان) from output")
     logger.info("🟦 Case 3: Barakat Group - Extract PO from JSON fields directly")
     logger.info("📅 NEW: Read Submission Date from Excel scraping file")
     logger.info("=" * 80)
@@ -1281,7 +1276,7 @@ def main():
     if args.date:
         yesterday = args.date
     else:
-        yesterday = (datetime.now() - timedelta(days=1)).strftime("%d-%m-%Y")
+        yesterday = (datetime.now() - timedelta(days=2)).strftime("%d-%m-%Y")
     
     base_path = Path("invoices_json") / yesterday
     outputs_path = Path("outputs")
@@ -1328,31 +1323,42 @@ def main():
     
     if successful_taxpayers > 0:
         logger.info(f"Results saved in: {outputs_date_dir}")
-        print(f"\n✅ JSON parsing completed successfully!")
-        print(f"📂 Output folder: {outputs_date_dir.absolute()}")
-        print(f"📊 Excel files: {outputs_date_dir}/Excel/<SupplierName>/results.xlsx")
-        print(f"📄 PDF files: {outputs_date_dir}/PDF/<SupplierName>/*.pdf")
-        print(f"✅ Processed {successful_taxpayers} taxpayers")
-        print(f"📝 Issuer data loaded from Excel: {len(issuer_data_dict)} records")
-        print(f"\n🆕 IMPROVED FEATURES:")
-        print(f"✅ Skip postal codes (1111, 12345, etc.)")
-        print(f"✅ Skip vehicle numbers (chassis, plates)")
-        print(f"✅ Skip delivery descriptions without PO keywords")
-        print(f"✅ Skip manufacturing years")
-        print(f"✅ Extract PO before registration number")
-        print(f"🟩 Excel 'غير محدد' → Use JSON issuer.name")
-        print(f"🟨 Excluded suppliers: مكتب علمي ام ام فارما, شركه ثري ام بي")
-        print(f"🟦 Barakat Group → PO from JSON fields")
-        print(f"📅 NEW: Submission Date from Excel scraping file")
+        print(f"\nJSON parsing completed successfully!")
+        print(f"Output folder: {outputs_date_dir.absolute()}")
+        print(f"Excel files: {outputs_date_dir}/Excel/<SupplierName>/results.xlsx")
+        print(f"PDF files: {outputs_date_dir}/PDF/<SupplierName>/*.pdf")
+        print(f"Processed {successful_taxpayers} taxpayers")
+        print(f"Issuer data loaded from Excel: {len(issuer_data_dict)} records")
+        print(f"\nIMPROVED FEATURES:")
+        print(f"Skip postal codes (1111, 12345, etc.)")
+        print(f"Skip vehicle numbers (chassis, plates)")
+        print(f"Skip delivery descriptions without PO keywords")
+        print(f"Skip manufacturing years")
+        print(f"Extract PO before registration number")
+        print(f"Excel 'غير محدد' → Use JSON issuer.name")
+        print(f"🟨 Excluded suppliers: شركه مجموعه الحلول المتكامله لانظمه الحريق والامان")
+        print(f"Barakat Group → PO from JSON fields")
+        print(f"NEW: Submission Date from Excel scraping file")
         if failed_taxpayers > 0:
-            print(f"❌ Failed {failed_taxpayers} taxpayers")
+            print(f"Failed {failed_taxpayers} taxpayers")
         if pdf_copy_success:
-            print(f"📁 PDFs successfully copied and source folder deleted")
+            print(f"PDFs successfully copied and source folder deleted")
         else:
-            print(f"⚠️ Warning: PDF copy process had issues")
+            print(f"Warning: PDF copy process had issues")
+    
+        print("Successfully processed all taxpayers")  # للـ Streamlit
+        return 0  # Success exit code
     else:
         logger.error("No taxpayers were processed successfully")
-        sys.exit(1)
+        print("Error: No taxpayers were processed successfully")  # للـ Streamlit
+        return 1  # Error exit code
+
 
 if __name__ == "__main__":
-    main()
+    try:
+        exit_code = main()
+        sys.exit(exit_code)
+    except Exception as e:
+        logger.error(f"Fatal error: {e}")
+        print(f"Error: {e}")
+        sys.exit(1)
