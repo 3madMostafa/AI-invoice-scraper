@@ -1,0 +1,119 @@
+python -m venv .venv
+.venv\Scripts\activate
+.venv\Scripts\python -m pip install --upgrade pip
+.venv\Scripts\python -m pip install -r requirements.txt
+python -m streamlit run .\streamlt_app.py
+
+1️⃣ Install Python on the server
+
+Download Python from:
+
+https://www.python.org/downloads/
+
+During installation VERY IMPORTANT:
+
+Check this box:
+
+✔ Add Python to PATH
+
+Then install.
+
+Test:
+
+python --version
+
+1️⃣ Open Task Scheduler
+
+Press:
+
+Windows Key + R
+
+Type:
+
+taskschd.msc
+
+Press Enter.
+
+2️⃣ Create a new task
+
+On the right side click:
+
+Create Basic Task
+
+Name:
+
+Invoice Automation
+
+Click Next.
+
+3️⃣ Trigger (schedule)
+
+Choose:
+
+Daily
+
+Click Next.
+
+Set:
+
+Start: Today
+Time: 5:00:00 PM
+Recur every: 1 days
+
+Click Next.
+
+4️⃣ Action
+
+Choose:
+
+Start a program
+
+Click Next.
+
+5️⃣ Select your BAT file
+
+Program/script:
+
+C:\Projects\MaslahaScheduler\run_scheduler.bat
+
+Start in (VERY IMPORTANT):
+
+C:\Projects\MaslahaScheduler
+
+Leave Arguments empty.
+
+Click Next → Finish.
+
+6️⃣ Recommended settings (important)
+
+Right-click your new task → Properties
+
+General tab
+
+Enable:
+
+✔ Run whether user is logged on or not
+✔ Run with highest privileges
+Conditions tab
+
+Uncheck:
+
+☐ Start the task only if the computer is on AC power
+
+(if it's a laptop)
+
+Settings tab
+
+Enable:
+
+✔ Run task as soon as possible after scheduled start is missed
+✔ If the task fails, restart every 5 minutes
+7️⃣ Test the task
+
+Right-click your task → Run
+
+You should see your pipeline run.
+
+Check logs here:
+
+C:\Projects\MaslahaScheduler\logs\email.log
