@@ -11,7 +11,7 @@ import re
 import sys
 from pathlib import Path
 from typing import Dict, Optional, List
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 
 import pandas as pd
 
@@ -144,7 +144,7 @@ def extract_invoice_fields(json_data: Dict) -> Dict:
     # --- Date ---
     date_raw = json_data.get("dateTimeReceived", "") or json_data.get("dateTimeIssued", "")
     try:
-        date_val = datetime.strptime(date_raw.split("T")[0], "%Y-%m-%d").strftime("%Y-%m-%d") if date_raw else ""
+        date_val = datetime.fromisoformat(date_raw.replace("Z", "+00:00")).astimezone(timezone(timedelta(hours=2))).strftime("%Y-%m-%d") if date_raw else ""
     except ValueError:
         date_val = ""
 
@@ -176,6 +176,11 @@ def extract_invoice_fields(json_data: Dict) -> Dict:
     # --- PO ---
     po_number = extract_po(json_data)
 
+    # --- Withholding Tax (T4) ---
+    tax_totals = doc.get("taxTotals", [])
+    wht_raw = next((t.get("amount", "") for t in tax_totals if t.get("taxType") == "T4"), "")
+    withholding_tax = "" if str(wht_raw).strip() in ("0", "0.0") else wht_raw
+
     return {
         "INTERNAL ID -1":     uuid,
         "INTERNAL ID -2":     internal_id,
@@ -188,6 +193,7 @@ def extract_invoice_fields(json_data: Dict) -> Dict:
         "STATUS":             status,
         "REGESTRAION":        receiver_id,
         "PO number":          po_number,
+        "WITHHOLDING TAX":    withholding_tax,
     }
 
 # =========================
@@ -254,7 +260,7 @@ def process_folder(json_folder: Path, company: str, date_label: str) -> List[Dic
 COLUMN_ORDER = [
     "INTERNAL ID -1", "INTERNAL ID -2", "DATE", "TYPE",
     "version", "TOTAL VALUE EGP", "FROM", "REGESTRAION NUMBER",
-    "STATUS", "REGESTRAION", "PO number"
+    "STATUS", "REGESTRAION", "PO number", "WITHHOLDING TAX"
 ]
 
 def save_excel(results: List[Dict], output_path: Path):
@@ -312,6 +318,10 @@ def save_general_csv(all_results: List[Dict], base_dir: Path):
         except (ValueError, TypeError):
             formatted_date = raw_date
 
+        wht = r.get("WITHHOLDING TAX", "")
+        if str(wht).strip() in ("0", "0.0"):
+            wht = ""
+
         row = {
             "COMPANY":        company_ou,
             "INVOICE NUMBER": r.get("INTERNAL ID -2", ""),
@@ -321,13 +331,12 @@ def save_general_csv(all_results: List[Dict], base_dir: Path):
             "PO NUMBER":      r.get("PO number", ""),
             "TAX ID":         r.get("REGESTRAION", ""),
             "REFERENCE1":     r.get("INTERNAL ID -1", ""),
+            "WITHHOLDING TAX": wht,
         }
         rows.append(row)
 
     df = pd.DataFrame(rows)
 
-    # Keep only rows that have a PO NUMBER
-    df = df[df["PO NUMBER"].notna() & (df["PO NUMBER"].astype(str).str.strip() != "")]
 
     # Drop duplicates on REFERENCE1 (UUID)
     df = df.drop_duplicates(subset=["REFERENCE1"], keep="first")
@@ -342,8 +351,16 @@ def save_general_csv(all_results: List[Dict], base_dir: Path):
     out_path  = base_dir / "results" / f"invoices_{date_str}.csv"
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
+    # Save original
     df.to_csv(out_path, index=False, encoding="utf-8-sig")
     print(f"\n  📋 General CSV saved → {out_path}  ({len(df)} rows)")
+
+    # # Save copy to D:/eta/
+    # eta_path = Path("D:/eta") / f"invoices_{date_str}.csv"
+    # eta_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # df.to_csv(eta_path, index=False, encoding="utf-8-sig")
+    # print(f"  📁 Copy saved → {eta_path}")
 
 # =========================
 # Summary
