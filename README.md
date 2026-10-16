@@ -1,218 +1,115 @@
-# Invoice Scraper - Automated Task Scheduler
+<p align="center">
+  <img src="https://capsule-render.vercel.app/api?type=waving&color=0:0f2027,50:203a43,100:2c5364&height=180&section=header&text=Invoice%20Automation&fontSize=44&fontColor=ffffff&animation=fadeIn&fontAlignY=38&desc=Download%2C%20read%20and%20email%20e-invoices%20every%20day&descAlignY=60&descSize=18" width="100%"/>
+</p>
 
-A comprehensive guide for scheduling automated invoice scraping and processing tasks using Windows Task Scheduler via PowerShell.
+<p align="center">
+  <img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=600&size=20&pause=1000&color=36BCF7&center=true&vCenter=true&width=600&lines=Logs+in+to+the+e-invoice+portal;Downloads+every+new+invoice;Finds+the+PO+number;Sends+an+Excel+report+by+email" alt="Typing SVG"/>
+</p>
 
-## 📋 Overview
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Selenium-43B02A?style=for-the-badge&logo=selenium&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white"/>
+  <img src="https://img.shields.io/badge/pandas-150458?style=for-the-badge&logo=pandas&logoColor=white"/>
+</p>
 
-This project automates two daily tasks:
-- **3:00 AM**: Run scraper only (`run_scraper_only.bat`)
-- **7:00 AM**: Run full pipeline (`run_full_pipeline.bat`)
+## What is this?
 
-## 🚀 Quick Setup
+An accounting team had to open the **Egyptian e-invoice portal** ([invoicing.eta.gov.eg](https://invoicing.eta.gov.eg/)) every day and copy invoice data by hand.
 
-### Prerequisites
-- Windows OS with PowerShell
-- Administrator privileges
-- Batch files ready in your project directory
+This project does all of it **automatically**:
 
-### Installation Steps
+1. Logs in to the portal and downloads yesterday's invoices (JSON + PDF).
+2. Reads each invoice and finds the **PO number**, the supplier and the main fields.
+3. Puts everything in an **Excel report**.
+4. **Emails** the report and the PDFs to the team.
 
-1. **Open PowerShell as Administrator**
-   - Press `Win + X`
-   - Select "Windows PowerShell (Admin)" or "Terminal (Admin)"
+## How it works
 
-2. **Update File Paths**
-   
-   Replace `C:\Path\To\invoice-scraper\` with your actual project path in the commands below.
+```mermaid
+flowchart LR
+    A[⏰ Every morning<br/>Task Scheduler] --> B[scrapping_tool.py<br/>Selenium downloads invoices]
+    B --> C[json_extractor.py<br/>finds PO numbers]
+    C --> D[Excel report]
+    D --> E[send_email.py<br/>sends report + PDFs]
+```
 
-## 📅 Task Scheduling Commands
+## Main features
 
-### ✅ Task 1: Scraper Only (3:00 AM Daily)
+- **Smart PO search**: looks for the PO number in many fields, with rules and regex. It also reads Arabic numbers (٠١٢٣).
+- **Clean data**: skips cancelled and rejected invoices, and suppliers you want to ignore.
+- **Safe scraping**: waits for pages, retries failed downloads and logs every step.
+- **Web app** (`run_frontend.py`): pick one day or a date range. Days run in parallel. The report goes to the email you choose.
+- **Runs alone every day** with Windows Task Scheduler.
+
+## How to run
+
+**1. Install**
+
+```bash
+pip install -r requirements.txt
+```
+
+You also need Google Chrome.
+
+**2. Add your settings**
+
+Copy `.env.example` to `.env` and fill it in:
+
+```
+PORTAL_EMAIL=you@company.com
+PORTAL_PASSWORD=your-portal-password
+TAXPAYERS_JSON={"Your Company Name": "12345"}
+SMTP_EMAIL=your.sender@gmail.com
+SMTP_PASSWORD=your-gmail-app-password
+REPORT_RECIPIENT=you@example.com
+```
+
+> ⚠️ Never upload your `.env` file. It is already in `.gitignore`.
+
+**3. Run**
+
+```bash
+# web app
+streamlit run run_frontend.py
+
+# or run the steps one by one
+python scrapping_tool.py --date 01-10-2025
+python json_extractor.py
+python send_email.py
+```
+
+## Run it every day (Windows)
+
+Open PowerShell **as Administrator** in the project folder:
 
 ```powershell
-$action = New-ScheduledTaskAction -Execute "C:\Path\To\invoice-scraper\run_scraper_only.bat"
-$trigger = New-ScheduledTaskTrigger -Daily -At 3:00am
-Register-ScheduledTask -TaskName "InvoiceScraper_3AM" -Action $action -Trigger $trigger -RunLevel Highest
+# 3:00 AM: download invoices only
+schtasks /Create /TN "InvoiceScraper" /TR "`"$PWD\run_scraper_only.bat`"" /SC DAILY /ST 03:00 /F
+
+# 7:00 AM: full pipeline (download + read + email)
+schtasks /Create /TN "InvoicePipeline" /TR "`"$PWD\run_full_pipeline.bat`"" /SC DAILY /ST 07:00 /F
 ```
 
-### ✅ Task 2: Full Pipeline (7:00 AM Daily)
+To remove them later:
 
 ```powershell
-$action = New-ScheduledTaskAction -Execute "C:\Path\To\invoice-scraper\run_full_pipeline.bat"
-$trigger = New-ScheduledTaskTrigger -Daily -At 7:00am
-Register-ScheduledTask -TaskName "InvoiceFullPipeline_7AM" -Action $action -Trigger $trigger -RunLevel Highest
+schtasks /Delete /TN "InvoiceScraper" /F
+schtasks /Delete /TN "InvoicePipeline" /F
 ```
 
-## 🛠️ Management Commands
+## Files
 
-### View All Scheduled Tasks
-
-```powershell
-Get-ScheduledTask
+```
+├── scrapping_tool.py      # logs in and downloads invoices (Selenium)
+├── json_extractor.py      # reads invoices and finds PO numbers
+├── send_email.py          # sends the Excel report and PDFs
+├── run_frontend.py        # Streamlit web app
+├── run_scraper_only.bat   # for Task Scheduler (download only)
+├── run_full_pipeline.bat  # for Task Scheduler (all steps)
+└── .env.example           # settings template
 ```
 
-### View Specific Task Details
-
-```powershell
-Get-ScheduledTask -TaskName "InvoiceScraper_3AM"
-```
-
-### Run Task Manually
-
-```powershell
-Start-ScheduledTask -TaskName "InvoiceScraper_3AM"
-```
-
-```powershell
-Start-ScheduledTask -TaskName "InvoiceFullPipeline_7AM"
-```
-
-### Delete a Task
-
-```powershell
-Unregister-ScheduledTask -TaskName "InvoiceScraper_3AM" -Confirm:$false
-```
-
-```powershell
-Unregister-ScheduledTask -TaskName "InvoiceFullPipeline_7AM" -Confirm:$false
-```
-
-### Check Task Status
-
-```powershell
-Get-ScheduledTaskInfo -TaskName "InvoiceScraper_3AM"
-```
-
-## 📝 Example: Full Path Configuration
-
-If your project is located at `C:\Projects\MaslahaScheduler\`, use:
-
-```powershell
-# Task 1
-$action = New-ScheduledTaskAction -Execute "C:\Projects\MaslahaScheduler\run_scraper_only.bat"
-$trigger = New-ScheduledTaskTrigger -Daily -At 3:00am
-Register-ScheduledTask -TaskName "InvoiceScraper_3AM" -Action $action -Trigger $trigger -RunLevel Highest
-
-# Task 2
-$action = New-ScheduledTaskAction -Execute "C:\Projects\MaslahaScheduler\run_full_pipeline.bat"
-$trigger = New-ScheduledTaskTrigger -Daily -At 7:00am
-Register-ScheduledTask -TaskName "InvoiceFullPipeline_7AM" -Action $action -Trigger $trigger -RunLevel Highest
-```
-
-## 🔧 Advanced Configuration
-
-### Run with Specific User Credentials
-
-```powershell
-$action = New-ScheduledTaskAction -Execute "C:\Path\To\invoice-scraper\run_scraper_only.bat"
-$trigger = New-ScheduledTaskTrigger -Daily -At 3:00am
-$principal = New-ScheduledTaskPrincipal -UserId "DOMAIN\Username" -LogonType Password -RunLevel Highest
-
-Register-ScheduledTask -TaskName "InvoiceScraper_3AM" -Action $action -Trigger $trigger -Principal $principal
-```
-
-### Enable Logging
-
-Add logging to your batch files:
-
-```batch
-@echo off
-echo [%date% %time%] Starting scraper... >> C:\Path\To\logs\scraper.log
-call your_script_here.bat >> C:\Path\To\logs\scraper.log 2>&1
-echo [%date% %time%] Scraper finished >> C:\Path\To\logs\scraper.log
-```
-
-### Run on Multiple Days
-
-```powershell
-# Run only on weekdays
-$trigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Monday,Tuesday,Wednesday,Thursday,Friday -At 3:00am
-```
-
-### Add Multiple Triggers
-
-```powershell
-$trigger1 = New-ScheduledTaskTrigger -Daily -At 3:00am
-$trigger2 = New-ScheduledTaskTrigger -Daily -At 9:00pm
-Register-ScheduledTask -TaskName "InvoiceScraper_Multiple" -Action $action -Trigger $trigger1,$trigger2 -RunLevel Highest
-```
-
-## 📊 Monitoring
-
-### View Last Run Result
-
-```powershell
-Get-ScheduledTaskInfo -TaskName "InvoiceScraper_3AM" | Select-Object LastRunTime, LastTaskResult
-```
-
-### Export Task Definition
-
-```powershell
-Export-ScheduledTask -TaskName "InvoiceScraper_3AM" | Out-File "C:\Backup\task_backup.xml"
-```
-
-### Import Task from Backup
-
-```powershell
-Register-ScheduledTask -Xml (Get-Content "C:\Backup\task_backup.xml" | Out-String) -TaskName "InvoiceScraper_3AM"
-```
-
-## ⚠️ Important Notes
-
-1. **Administrator Rights**: Always run PowerShell as Administrator when creating tasks
-2. **Path Format**: Use absolute paths (e.g., `C:\Projects\...`) not relative paths
-3. **RunLevel Highest**: Ensures tasks run with elevated privileges
-4. **Test Manually**: Always test your batch files manually before scheduling
-5. **Check Logs**: Monitor task execution through Windows Event Viewer or custom logs
-
-## 🐛 Troubleshooting
-
-### Task Not Running?
-
-1. **Check Task Status**:
-   ```powershell
-   Get-ScheduledTask -TaskName "InvoiceScraper_3AM" | Select-Object State
-   ```
-
-2. **Enable Task**:
-   ```powershell
-   Enable-ScheduledTask -TaskName "InvoiceScraper_3AM"
-   ```
-
-3. **Check Last Error**:
-   ```powershell
-   Get-ScheduledTaskInfo -TaskName "InvoiceScraper_3AM"
-   ```
-
-### Common Error Codes
-
-- `0x0`: Success
-- `0x1`: Incorrect function or path
-- `0x41301`: Task is currently running
-- `0x800710E0`: The operator or administrator has refused the request
-
-## 📧 Email Notifications (Optional)
-
-To add email notifications on failure, modify your batch file:
-
-```batch
-@echo off
-your_script.bat
-if %ERRORLEVEL% NEQ 0 (
-    powershell -Command "Send-MailMessage -To 'admin@example.com' -From 'scheduler@example.com' -Subject 'Task Failed' -Body 'Invoice scraper failed' -SmtpServer 'smtp.gmail.com'"
-)
-```
-
-## 📚 Resources
-
-- [Microsoft Task Scheduler Documentation](https://docs.microsoft.com/en-us/windows/win32/taskschd/task-scheduler-start-page)
-- [PowerShell ScheduledTasks Module](https://docs.microsoft.com/en-us/powershell/module/scheduledtasks/)
-
-## 📄 License
-
-This documentation is provided as-is for educational and automation purposes.
-
----
-
-**Author**: MaslahaScheduler Team  
-**Last Updated**: November 2025
+<p align="center">
+  <img src="https://capsule-render.vercel.app/api?type=waving&color=0:2c5364,50:203a43,100:0f2027&height=100&section=footer" width="100%"/>
+</p>
