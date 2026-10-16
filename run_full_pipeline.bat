@@ -2,7 +2,7 @@
 setlocal enabledelayedexpansion
 
 REM ==== Paths ====
-set "PROJECT_DIR=C:\Projects\MaslahaScheduler"
+set "PROJECT_DIR=%~dp0."
 set "PYTHON=%PROJECT_DIR%\.venv\Scripts\python.exe"
 
 REM ==== Debug info ====
@@ -23,14 +23,14 @@ if exist "%PYTHON%" (
 )
 
 REM ==== Run data_scraper ====
-echo Running data_scraper.py ...
-"%PYTHON%" "%PROJECT_DIR%\data_scraper.py"
+echo Running scrapping_tool.py ...
+"%PYTHON%" "%PROJECT_DIR%\scrapping_tool.py"
 echo Exit code = %ERRORLEVEL%
 echo.
 
 REM ==== Run json_parser ====
-echo Running json_parser.py ...
-"%PYTHON%" "%PROJECT_DIR%\json_parser.py"
+echo Running json_extractor.py ...
+"%PYTHON%" "%PROJECT_DIR%\json_extractor.py"
 echo Exit code = %ERRORLEVEL%
 echo.
 

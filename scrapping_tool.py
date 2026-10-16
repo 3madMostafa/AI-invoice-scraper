@@ -9,14 +9,16 @@ from selenium.common.exceptions import StaleElementReferenceException, TimeoutEx
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font, PatternFill, Alignment
 
-# Configuration
-EMAIL = "someone@example.com"
-PASSWORD = "REMOVED_PASSWORD"
+# Configuration (values come from the .env file)
+import json
+from dotenv import load_dotenv
+load_dotenv()
+EMAIL = os.getenv("PORTAL_EMAIL", "")
+PASSWORD = os.getenv("PORTAL_PASSWORD", "")
 
 # Taxpayers mapping (Name → Value)
-TAXPAYERS = {
-    "YOUR_COMPANY_NAME": "54041"
-}
+# Format in .env: TAXPAYERS_JSON={"Company name": "portal id"}
+TAXPAYERS = json.loads(os.getenv("TAXPAYERS_JSON", "{}"))
 
 # Fixed target date
 import argparse

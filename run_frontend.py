@@ -63,7 +63,7 @@ st.divider()
 st.subheader("Email Configuration")
 recipient_email = st.text_input(
     "Recipient Email Address",
-    value="emadmostafa1442002@gmail.com",
+    value="",
     placeholder="example@email.com",
     help="Email address for report delivery"
 )

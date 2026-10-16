@@ -12,20 +12,16 @@ from email.mime.base import MIMEBase
 from email import encoders
 import zipfile
 
-# Email Configuration
+# Email Configuration (values come from the .env file)
+from dotenv import load_dotenv
+load_dotenv()
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
-SMTP_EMAIL = "your.sender@gmail.com"
-SMTP_PASSWORD = "REMOVED_APP_PASSWORD"
+SMTP_EMAIL = os.getenv("SMTP_EMAIL", "")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
 
 # Multiple recipients
-RECIPIENT_EMAILS = [
-    # "someone@example.com",
-    # "someone@example.com", 
-    # "someone@example.com",
-    # "someone@example.com",
-    "emadmostafa1442002@gmail.com"
-]
+RECIPIENT_EMAILS = [os.getenv("REPORT_RECIPIENT", "you@example.com")]
 
 # Setup centralized logging with proper UTF-8 encoding
 def setup_logging():
